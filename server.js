@@ -36,6 +36,50 @@ app.post("/api/init", async (req, res) => {
     res.status(500).json({ ok: false, error: String(e) });
   }
 });
+app.post("/api/seed", async (req, res) => {
+  try {
+    const pin = String(req.body?.pin || "");
+    if (pin !== (process.env.ADMIN_PIN || "9999")) {
+      return res.status(401).json({ ok: false, error: "Unauthorized" });
+    }
+
+    const stores = [
+      { name: "Kwik Shop Fairground", slug: "kwik-shop-fairground" },
+      { name: "Circlek Lower", slug: "circlek-lower" },
+      { name: "Circlek Troy", slug: "circlek-troy" },
+      { name: "Raceway Demopolis", slug: "raceway-demopolis" },
+      { name: "Raceway Selma", slug: "raceway-selma" },
+      { name: "Raceway Columbusf", slug: "raceway-columbusf" },
+      { name: "Raceway McComb", slug: "raceway-mccomb" },
+      { name: "Bp Phenix", slug: "bp-phenix" },
+      { name: "Gulf Baymedows", slug: "gulf-baymedows" }
+    ];
+
+    // Create stores table if missing (safe)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS stores (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL
+      );
+    `);
+
+    for (const s of stores) {
+      await pool.query(
+        `INSERT INTO stores (name, slug)
+         VALUES ($1, $2)
+         ON CONFLICT (slug) DO NOTHING`,
+        [s.name, s.slug]
+      );
+    }
+
+    const result = await pool.query(`SELECT id, name, slug FROM stores ORDER BY id`);
+    res.json({ ok: true, stores: result.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 
 // Submit daily report
 app.post("/api/report", async (req, res) => {
