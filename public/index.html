@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Store Daily Dashboard</title>
+  <style>
+    body { font-family: system-ui, Arial; margin:0; background:#f5f5f5; }
+    header { background:#111; color:#fff; padding:14px 16px; display:flex; justify-content:space-between; align-items:center;}
+    .wrap { max-width:1100px; margin:0 auto; padding:20px; }
+    .card { background:#fff; border-radius:12px; padding:18px; margin:14px 0; box-shadow:0 1px 8px rgba(0,0,0,.06); }
+    button { padding:10px 14px; border:0; border-radius:8px; cursor:pointer; background:#111; color:#fff; font-weight:600; }
+    button.secondary { background:#e5e5e5; color:#111; }
+    .tabs button { margin-left:8px; }
+    label { display:block; margin-top:10px; font-weight:700; }
+    input, select, textarea { width:100%; padding:10px; border-radius:10px; border:1px solid #ccc; margin-top:6px; }
+    textarea { min-height:80px; }
+    .grid { display:grid; gap:12px; grid-template-columns: repeat(1, minmax(0,1fr)); }
+    @media(min-width: 800px){ .grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); } .grid.three{ grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+    th, td { border:1px solid #e5e5e5; padding:8px; text-align:right; white-space:nowrap;}
+    th { background:#fafafa; text-align:right; }
+    th:first-child, td:first-child { text-align:left; }
+    .msg.ok { color:#0a7a2f; font-weight:700; }
+    .msg.err { color:#b00020; font-weight:700; }
+    .totals { display:grid; gap:10px; grid-template-columns: repeat(2, minmax(0,1fr)); margin-top:12px; }
+    @media(min-width: 900px){ .totals { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+    .kpi { background:#111; color:#fff; border-radius:12px; padding:12px; }
+    .kpi .v { font-size:18px; font-weight:800; margin-top:4px; }
+    .small { color:#666; font-size:12px; margin-top:6px; }
+  </style>
+</head>
+<body>
+<header>
+  <div><strong>Store Daily Dashboard</strong></div>
+  <div class="tabs">
+    <button class="secondary" id="tabFront">Front Desk</button>
+    <button class="secondary" id="tabOwner">Owner</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="front" class="card">
+    <h2>Front Desk Entry</h2>
+    <div class="grid three">
+      <div>
+        <label>Store</label>
+        <select id="store"></select>
+      </div>
+      <div>
+        <label>Date</label>
+        <input type="date" id="date"/>
+      </div>
+      <div>
+        <label>Submitted By</label>
+        <input id="submitted_by" placeholder="Employee name"/>
+      </div>
+    </div>
+
+    <div class="grid two">
+      <div><label>Inside Sale</label><input type="number" step="0.01" id="inside_sales"/></div>
+      <div><label>Fuel Sale</label><input type="number" step="0.01" id="fuel_sales"/></div>
+
+      <div><label>Cash Collected</label><input type="number" step="0.01" id="cash_collected"/></div>
+      <div><label>Credit Total</label><input type="number" step="0.01" id="credit_total"/></div>
+
+      <div><label>Gas Deposit</label><input type="number" step="0.01" id="gas_deposit"/></div>
+      <div><label>Tax</label><input type="number" step="0.01" id="tax"/></div>
+
+      <div><label>EBT</label><input type="number" step="0.01" id="ebt"/></div>
+      <div><label>Lula / DoorDash</label><input type="number" step="0.01" id="delivery_apps"/></div>
+
+      <div><label>Cash Payout</label><input type="number" step="0.01" id="cash_payout"/></div>
+      <div><label>Check Payout</label><input type="number" step="0.01" id="check_payout"/></div>
+
+      <div><label>Cash Over/Short</label><input type="number" step="0.01" id="cash_over_short"/></div>
+      <div><label>Bank Deposit</label><input type="number" step="0.01" id="bank_deposit"/></div>
+    </div>
+
+    <label>Notes</label>
+    <textarea id="notes" placeholder="Optional notes"></textarea>
+
+    <div class="grid three" style="margin-top:12px;">
+      <div>
+        <label>Store PIN</label>
+        <input id="store_pin" type="password" placeholder="Default 1234"/>
+      </div>
+      <div style="display:flex; align-items:end; gap:10px;">
+        <button id="btnSubmit">Submit</button>
+        <button class="secondary" id="btnClear">Clear</button>
+      </div>
+      <div class="small">Tip: you can change STORE_PIN and ADMIN_PIN in Render env vars.</div>
+    </div>
+
+    <p id="frontMsg" class="msg"></p>
+  </div>
+
+  <div id="owner" class="card" style="display:none">
+    <h2>Owner Dashboard</h2>
+
+    <div class="grid three">
+      <div>
+        <label>Date</label>
+        <input type="date" id="ownerDate"/>
+      </div>
+      <div>
+        <label>Store (optional)</label>
+        <select id="ownerStore"></select>
+      </div>
+      <div>
+        <label>Admin PIN</label>
+        <input id="admin_pin" type="password" placeholder="Default 9999"/>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <button id="btnLoad">Load</button>
+      <button class="secondary" id="btnInit">Init DB (first time)</button>
+    </div>
+
+    <p id="ownerMsg" class="msg"></p>
+
+    <div id="kpis" class="totals"></div>
+    <div style="overflow:auto;">
+      <table id="table"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORES = Array.from({length:8}, (_,i)=>`Store ${i+1}`);
+
+function todayISO(){
+  const d=new Date();
+  const yyyy=d.getFullYear();
+  const mm=String(d.getMonth()+1).padStart(2,"0");
+  const dd=String(d.getDate()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+const $ = (id)=>document.getElementById(id);
+
+function setMsg(el, txt, ok=true){
+  el.textContent = txt || "";
+  el.className = "msg " + (ok ? "ok" : "err");
+}
+
+function money(n){
+  const x = Number(n||0);
+  return (Number.isFinite(x) ? x : 0).toFixed(2);
+}
+
+function calcTotals(rows){
+  const keys = ["inside_sales","fuel_sales","cash_collected","credit_total","gas_deposit","tax","ebt","delivery_apps","cash_payout","check_payout","cash_over_short","bank_deposit"];
+  const totals = {};
+  keys.forEach(k => totals[k]=0);
+  rows.forEach(r=>{
+    keys.forEach(k => totals[k]+=Number(r[k]||0));
+  });
+  return totals;
+}
+
+function renderKPIs(t){
+  const map = [
+    ["Inside Sale","inside_sales"],
+    ["Fuel Sale","fuel_sales"],
+    ["Cash","cash_collected"],
+    ["Credit","credit_total"],
+    ["Gas Deposit","gas_deposit"],
+    ["Tax","tax"],
+    ["EBT","ebt"],
+    ["Lula/DoorDash","delivery_apps"],
+    ["Cash Payout","cash_payout"],
+    ["Check Payout","check_payout"],
+    ["Over/Short","cash_over_short"],
+    ["Bank Deposit","bank_deposit"]
+  ];
+  $("kpis").innerHTML = map.map(([label,key])=>`
+    <div class="kpi"><div>${label}</div><div class="v">$${money(t[key])}</div></div>
+  `).join("");
+}
+
+function renderTable(rows){
+  const cols = ["store","date","inside_sales","fuel_sales","cash_collected","credit_total","ebt","delivery_apps","gas_deposit","tax","cash_payout","check_payout","cash_over_short","bank_deposit","submitted_by","updated_at"];
+  let html = "<tr>" + cols.map(c=>`<th>${c}</th>`).join("") + "</tr>";
+  rows.forEach(r=>{
+    html += "<tr>" + cols.map(c=>{
+      const v = r[c];
+      const isNum = ["inside_sales","fuel_sales","cash_collected","credit_total","ebt","delivery_apps","gas_deposit","tax","cash_payout","check_payout","cash_over_short","bank_deposit"].includes(c);
+      return `<td>${isNum ? money(v) : (v ?? "")}</td>`;
+    }).join("") + "</tr>";
+  });
+  $("table").innerHTML = html;
+}
+
+async function postJSON(url, body){
+  const res = await fetch(url, {
+    method:"POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(()=>({}));
+  return {res, data};
+}
+
+async function submitReport(){
+  setMsg($("frontMsg"), "", true);
+
+  const payload = {
+    pin: $("store_pin").value || "1234",
+    store: $("store").value,
+    date: $("date").value,
+    submitted_by: $("submitted_by").value || "",
+    notes: $("notes").value || "",
+    inside_sales: $("inside_sales").value,
+    fuel_sales: $("fuel_sales").value,
+    cash_collected: $("cash_collected").value,
+    credit_total: $("credit_total").value,
+    gas_deposit: $("gas_deposit").value,
+    tax: $("tax").value,
+    ebt: $("ebt").value,
+    delivery_apps: $("delivery_apps").value,
+    cash_payout: $("cash_payout").value,
+    check_payout: $("check_payout").value,
+    cash_over_short: $("cash_over_short").value,
+    bank_deposit: $("bank_deposit").value
+  };
+
+  const {res, data} = await postJSON("/api/report", payload);
+  if(!res.ok || !data.ok){
+    setMsg($("frontMsg"), data.error || "Submit failed", false);
+    return;
+  }
+  setMsg($("frontMsg"), "Saved ✅", true);
+}
+
+async function loadReports(){
+  setMsg($("ownerMsg"), "", true);
+  const pin = $("admin_pin").value || "9999";
+  const date = $("ownerDate").value;
+  const store = $("ownerStore").value;
+
+  const url = new URL("/api/reports", window.location.origin);
+  url.searchParams.set("pin", pin);
+  if(date) url.searchParams.set("date", date);
+  if(store) url.searchParams.set("store", store);
+
+  const res = await fetch(url.toString());
+  const data = await res.json().catch(()=>({}));
+
+  if(!res.ok || !data.ok){
+    setMsg($("ownerMsg"), data.error || "Load failed", false);
+    $("table").innerHTML = "";
+    $("kpis").innerHTML = "";
+    return;
+  }
+
+  const rows = data.rows || [];
+  if(rows.length === 0){
+    setMsg($("ownerMsg"), "No rows for this filter.", true);
+    $("table").innerHTML = "";
+    $("kpis").innerHTML = "";
+    return;
+  }
+
+  renderTable(rows);
+  renderKPIs(calcTotals(rows));
+  setMsg($("ownerMsg"), `Loaded ${rows.length} row(s).`, true);
+}
+
+async function initDB(){
+  setMsg($("ownerMsg"), "", true);
+  const pin = $("admin_pin").value || "9999";
+  const {res, data} = await postJSON("/api/init", { pin });
+  if(!res.ok || !data.ok){
+    setMsg($("ownerMsg"), data.error || "Init failed", false);
+    return;
+  }
+  setMsg($("ownerMsg"), "DB initialized ✅", true);
+}
+
+function clearFront(){
+  ["inside_sales","fuel_sales","cash_collected","credit_total","gas_deposit","tax","ebt","delivery_apps","cash_payout","check_payout","cash_over_short","bank_deposit","notes","submitted_by"].forEach(id=>$(id).value="");
+}
+
+function showFront(){
+  $("front").style.display="block";
+  $("owner").style.display="none";
+}
+function showOwner(){
+  $("owner").style.display="block";
+  $("front").style.display="none";
+}
+
+(function init(){
+  $("date").value = todayISO();
+  $("ownerDate").value = todayISO();
+
+  $("store").innerHTML = STORES.map(s=>`<option>${s}</option>`).join("");
+  $("ownerStore").innerHTML = `<option value="">All Stores</option>` + STORES.map(s=>`<option>${s}</option>`).join("");
+
+  $("tabFront").onclick = showFront;
+  $("tabOwner").onclick = showOwner;
+
+  $("btnSubmit").onclick = submitReport;
+  $("btnClear").onclick = clearFront;
+
+  $("btnLoad").onclick = loadReports;
+  $("btnInit").onclick = initDB;
+})();
+</script>
+</body>
+</html>
